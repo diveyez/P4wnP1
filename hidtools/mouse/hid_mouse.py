@@ -95,10 +95,8 @@ class hid_mouse(object)	:
 
 		dim = upper - lower
 
-		#print "dim {0}".format(dim)
-		scaled = int(lower + val*dim)
 		#print "clamped val {0} scaled {1}".format(val, scaled)
-		return scaled
+		return int(lower + val*dim)
 
 	def gen_out_report_abs(self):
 		#xout = hid_mouse.convert_pos_short(self._x_abs)
@@ -149,9 +147,7 @@ class hid_mouse(object)	:
 		valf = max(min(val, 1.0), 0.0)
 
 		valx = valf * 0x7FFF # scale to 0x7FFF
-#		valx = valf * 10000 + 1 # scale from 0x0001 to 0x7FFF
-		res = struct.pack("<h", int(valx)) # signed short, little endian
-		return res
+		return struct.pack("<h", int(valx))
 
 	@staticmethod
 	def convert_pos_short(val):
@@ -159,9 +155,7 @@ class hid_mouse(object)	:
 		valf = max(min(val, 1.0), 0.0)
 
 		valx = valf * 0x7FFE + 1 # scale from 0x0001 to 0x7FFF
-#		valx = valf * 10000 + 1 # scale from 0x0001 to 0x7FFF
-		res = struct.pack("<h", int(valx)) # signed short, little endian
-		return res
+		return struct.pack("<h", int(valx))
 
 	@staticmethod
 	def bytes2hexstr(bytes):
@@ -170,7 +164,6 @@ class hid_mouse(object)	:
 	@staticmethod
 	def convert_pos_str(val):
 		res = hid_mouse.convert_pos_short(val)
-		res_str = hid_mouse.bytes2hexstr(res)
-		return res_str
+		return hid_mouse.bytes2hexstr(res)
 
 

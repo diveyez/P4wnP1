@@ -48,16 +48,15 @@ class Channel(object):
         self.type = type
 
         # if INPUT or bidirectional, create INPUT queue
-        if self.type == Channel.TYPE_IN or self.type == Channel.TYPE_BIDIRECTIONAL:
+        if self.type in [Channel.TYPE_IN, Channel.TYPE_BIDIRECTIONAL]:
             self.__in_queue = Queue.Queue()
 
         # if OUTPUT or bidirectional, create OUTPUT queue
-        if self.type == Channel.TYPE_OUT or self.type == Channel.TYPE_BIDIRECTIONAL:
+        if self.type in [Channel.TYPE_OUT, Channel.TYPE_BIDIRECTIONAL]:
             self.__out_queue = Queue.Queue()
 
     def setInteract(self, interact):
         if interact:
-            pass
             # if interact got enabled, print out all buffered data and set interact to true afterwards (forces passthru of channel to stdout)
             import sys
             while self.__in_queue.qsize() > 0:
@@ -132,10 +131,7 @@ class Channel(object):
             Channel.print_debug("Couldn't check channel {0} for pending output, this is an INPUT channel".format(self.id))
             return False
 
-        if self.__out_queue.qsize() > 0:
-            return True
-        else:
-            return False
+        return self.__out_queue.qsize() > 0
         
     def onClose(self):
         self.__isClosed = True
@@ -288,32 +284,24 @@ class StreamChannel(Channel):
             return succeeded
         
     def Read(self, count, timeout=0):
-        # on demand read:
-        #control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count, timeout)
-        #self.__sendControlMessage(control_msg)
-
         if self.__passthrough:
-            if not self.hasInput():
-                return ""
-            return self.readInput()
+            return "" if not self.hasInput() else self.readInput()
+        control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count,  timeout)
+        self.__sendControlMessage(control_msg)
+
+        # we wait till an answer is received (based on a condition)
+        self.__read_condition.acquire()
+        self.__read_condition.wait(timeout=None)
+        #check if write succeeded
+        succeeded = self.__read_succeeded
+        read_size = self.__read_size
+        read_data = self.__read_data
+        self.__read_condition.release()
+
+        if succeeded:
+            return read_data
         else:
-             # if passthrough is disable, data is written as control message and an answer is expected
-            control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count,  timeout)
-            self.__sendControlMessage(control_msg)
-            
-            # we wait till an answer is received (based on a condition)
-            self.__read_condition.acquire()
-            self.__read_condition.wait(timeout=None)
-            #check if write succeeded
-            succeeded = self.__read_succeeded
-            read_size = self.__read_size
-            read_data = self.__read_data
-            self.__read_condition.release()
-            
-            if succeeded:
-                return read_data
-            else:
-                raise ChannelException("Error reading from StreamChannel {0}".format(self.id))
+            raise ChannelException("Error reading from StreamChannel {0}".format(self.id))
                 
     
     def ReadByte(self):
@@ -343,7 +331,7 @@ class StreamChannel(Channel):
             control_msg = struct.pack("!Ii", StreamChannel.CHANNEL_CONTROL_REQUEST_WRITE, len(data))
             control_msg += data
             self.__sendControlMessage(control_msg)
-            
+
             # we wait till an answer is received (based on a condition)
             self.__write_condition.acquire()
             self.__write_condition.wait(timeout=None)
@@ -351,11 +339,8 @@ class StreamChannel(Channel):
             succeeded = self.__write_succeeded
             write_size = self.__write_size
             self.__write_condition.release()
-            
-            if succeeded:
-                return write_size
-            else:
-                return -1 # indicate write error (alternatively a ChannelException could be raised)
+
+            return write_size if succeeded else -1
             
             
         

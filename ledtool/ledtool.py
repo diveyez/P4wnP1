@@ -40,18 +40,18 @@ def prepare():
 		# fix ownership
 		os.chown(filepath, pwd.getpwnam(uid).pw_uid, grp.getgrnam(gid).gr_gid)
 		os.chmod(filepath, 0o666)
-		
+
 	# setup manual led control
-	with open(ledpath + "trigger", "w") as trigger:
+	with open(f'{ledpath}trigger', "w") as trigger:
 		trigger.write("none")
-		
+
 	# disable LED
-	with open(ledpath + "brightness", "w") as brightness:
+	with open(f'{ledpath}brightness', "w") as brightness:
 		brightness.write("1")
 
 
 def blink(count, delay_off, delay_on):
-	with open(ledpath + "brightness", "w") as brightness:
+	with open(f'{ledpath}brightness', "w") as brightness:
 		# if count is 255, LED should be turned on continuosly
 		if count >= 255:
 			brightness.write("0")
@@ -60,7 +60,7 @@ def blink(count, delay_off, delay_on):
 			brightness.write("1")
 			brightness.seek(0)
 		else:
-			for i in range(count):
+			for _ in range(count):
 				brightness.write("0")
 				brightness.seek(0)
 				time.sleep(delay_on)

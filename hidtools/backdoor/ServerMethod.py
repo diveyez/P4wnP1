@@ -51,7 +51,7 @@ class ServerMethod:
         self.hasFinished = True
         
     def setResult(self, result):
-        if result == None:
+        if result is None:
             self.setError("Server method '{0}' has been called, but returned no result", self.name)
             return
         self.result = result

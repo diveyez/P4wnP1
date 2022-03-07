@@ -47,15 +47,15 @@ class Client(object):
         self.__next_method_id = 1
         # abort all pending method with error
         if hasattr(self,  "_Client__pending_methods"):
+            errstr =  "Method aborted, because client disconnected"
+            err_indicator =  1
             for method_id in self.__pending_methods.keys(): # we copy the dictionary keys, as processed methods get removed by another thread while iterating
-                errstr =  "Method aborted, because client disconnected"
-                err_indicator =  1
                 response = struct.pack("!IB{0}sx".format(len(errstr)), method_id, err_indicator, errstr)
                 self.deliverMethodResponse(response)
         # close all opened channels
         if hasattr(self,  "_Client__channels"):
             for channel in self.__channels.values():
-                channel.onClose() 
+                channel.onClose()
         self.__pending_methods = {}
         self.__processes = {}
         self.__channels = {}
@@ -93,7 +93,7 @@ class Client(object):
         return self.__isConnected
 
     def setLink(self, link):
-        if not link == self.__hasLink:
+        if link != self.__hasLink:
             Client.print_debug("Link state changed: {0}".format(link))
             if not link:
                 self.setConnected(False)
@@ -102,7 +102,7 @@ class Client(object):
         self.__hasLink = link
 
     def setStage2(self, stage2):
-        if not stage2 == self.__stage2:
+        if stage2 != self.__stage2:
             Client.print_debug("Stage2 state changed: {0}".format(stage2))
             self.__stage2 = stage2
             
@@ -149,11 +149,11 @@ class Client(object):
         '''
 
         # extract method_id and error / success field
-        method_id, success_error = struct.unpack("!IB", response[0:5])
+        method_id, success_error = struct.unpack("!IB", response[:5])
         response = response[5:]
 
         # check if method id is contained in pending methods
-        if not method_id in self.__pending_methods:
+        if method_id not in self.__pending_methods:
             Client.print_debug("Response for method with call ID {0} received, but theres no pending request for this call ID ".format(method_id))
             return			
 
@@ -193,10 +193,7 @@ class Client(object):
         return self.__pending_methods		
 
     def getProcess(self, pid):
-        if pid in self.__processes:
-            return self.__processes[pid]
-        else:
-            return None			
+        return self.__processes[pid] if pid in self.__processes else None			
 
     def addProc(self, proc):
         self.__processes[proc.id] = proc
@@ -212,10 +209,7 @@ class Client(object):
         del self.__processes[proc_id]
 
     def getProcsWithChannel(self):
-        procs=[]
-        for proc in self.__processes:
-            procs.append(self.__processes[proc])
-        return procs
+        return [self.__processes[proc] for proc in self.__processes]
 
     def addChannel(self, channel):
         self.__channels[channel.id] = channel
@@ -232,10 +226,7 @@ class Client(object):
             Client.print_debug("Channel with ID {0} added to INPUT channels".format(channel.id))
 
     def getChannel(self, channel_id):
-        if channel_id in self.__channels:
-            return self.__channels[channel_id]
-        else:
-            return None
+        return self.__channels[channel_id] if channel_id in self.__channels else None
         
     def removeChannel(self, channel_id):
         ch = self.getChannel(channel_id)
@@ -309,11 +300,13 @@ class ClientMethod(object):
         self.handler_result = None
 
     def createMethodRequest(self):
-        # the method request starts with a null terminated method name, the args are appended as char[]
-        methodRequest = struct.pack("!I{0}sx{1}s".format(len(self.name), len(self.args)), self.id, self.name, self.args) # method_id (uint32), name (null terminated string), args  
-
         #print "Method request created: " + repr(methodRequest)
-        return methodRequest
+        return struct.pack(
+            "!I{0}sx{1}s".format(len(self.name), len(self.args)),
+            self.id,
+            self.name,
+            self.args,
+        )
 
     @property
     def run_requested(self):

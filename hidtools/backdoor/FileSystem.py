@@ -40,13 +40,13 @@ class FileSystem:
     @staticmethod
     def open_local_file(filename, fileMode, fileAccess):
         # open the file
-       
+
         # before obening the file, FileAccess is checked and an error thrown if needed
         resfile = None
         exists = FileSystem.fileExists(filename)
 
         if fileAccess == FileAccess.Read:
-    
+
             if fileMode == FileMode.Append:
                 raise Exception("FileMode append choosen for '{0}', but this could only be used in conjuction with 'FileAccess.Write'!".format(filename))
             elif fileMode == FileMode.Create:
@@ -58,32 +58,28 @@ class FileSystem:
             elif fileMode == FileMode.CreateNew:
                 if exists:
                     raise Exception("File '{0}' already exists!".format(filename))
-                else:
-                    resfile= open(filename, "wb")
-                    resfile.close()                    
-                    resfile= open(filename, "rb")
+                resfile= open(filename, "wb")
+                resfile.close()
+                resfile= open(filename, "rb")
             elif fileMode == FileMode.Open:
                 if exists:
                     resfile= open(filename, "rb")
                 else:
                     raise Exception("File '{0}' not found!".format(filename))
             elif fileMode == FileMode.OpenOrCreate:
-                if exists:
-                    resfile= open(filename, "rb")
-                else:                
+                if not exists:
                     resfile= open(filename, "wb")
-                    resfile.close()                    
-                    resfile= open(filename, "rb")                
+                    resfile.close()
+                resfile= open(filename, "rb")
             elif fileMode == FileMode.Truncate:
-                resfile= open(filename, "wb")
-                resfile.truncate()
-                resfile.close()
-                resfile= open(filename, "rb")                
+                with open(filename, "wb") as resfile:
+                    resfile.truncate()
+                resfile= open(filename, "rb")
             else:
                 raise Exception("Unknown FileMode type for '{0}'!".format(filename))
-    
+
         elif fileAccess ==  FileAccess.Write:
-    
+
             if fileMode == FileMode.Append:
                 resfile= open(filename, "ab")
             elif fileMode == FileMode.Create:
@@ -107,9 +103,9 @@ class FileSystem:
                 resfile.truncate()
             else:
                 raise Exception("Unknown FileMode type for '{0}'!".format(filename))            
-    
+
         elif fileAccess ==  FileAccess.ReadWrite:
-    
+
             if fileMode == FileMode.Append:
                 raise Exception("FileMode append choosen for '{0}', but this could only be used in conjuction with 'FileAccess.Write'!".format(filename))
             elif fileMode == FileMode.Create:
@@ -133,7 +129,7 @@ class FileSystem:
                 raise Exception("Unknown FileMode type for '{0}'!".format(filename))
         else:
             raise Exception("Unknown FileAccess type for '{0}'!".format(filename))
-        
+
         return resfile
     
     @staticmethod

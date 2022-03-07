@@ -93,7 +93,7 @@ def read_packet(f):
 	snd = data[2]
 	rcv = data[3]
 	# reduce msg to real size
-	msg = data[4][0:snd]
+	msg = data[4][:snd]
 	return [src, dst, snd, rcv, msg]
 
 def process_input(qin, subproc):
@@ -254,7 +254,7 @@ def reset_bash(subproc):
 	send_datastream(qout, 3, 3, "Bash process terminated")
 	bash = subprocess.Popen(["bash"], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 	subproc[0] = bash
-	if bash.poll() == None:
+	if bash.poll() is None:
 		send_datastream(qout, 3, 3, "New bash process started")
 	else:
 		send_datastream(qout, 3, 3, "Restarting bash failed")

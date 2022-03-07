@@ -159,16 +159,14 @@ class WatchHIDLed:
 			# check if there's already readable state data (not expected here, as we didn't changed LED state already)
 			while True:
 				r, w, e = select([f.fileno()], [], [], 0.050)
-				if len(r) > 0:
-					# readable data
-					d = f.read(1)
-					f.flush()
-					#print d.encode("hex")
-				else:
+				if len(r) <= 0:
 					# no readable data
 					#print "No readable data"
 					break
 
+				# readable data
+				d = f.read(1)
+				f.flush()
 			while True:
 				data = f.read(1)
 				self.statechange(ord(data))
@@ -219,7 +217,7 @@ class WatchHIDLed:
 	def send_receive_check(self, attempts = 5, testkey = "NUMLOCK", final_state = -1):
 		#KEYS = {"NUMLOCK": 0x83, "CAPSLOCK": 0x82, "SCROLLLOCK": 0x84}
 		KEYS = {"NUMLOCK": 0x53, "CAPSLOCK": 0x39, "SCROLLLOCK": 0x47}
-		if not testkey in KEYS:
+		if testkey not in KEYS:
 			return
 
 		# return exitcode 0 after attempts time changing the LED state for the key given by 
@@ -230,22 +228,20 @@ class WatchHIDLed:
 			# check if there's already readable state data (not expected here, as we didn't changed LED state already)
 			while True:
 				r, w, e = select([f.fileno()], [], [], 0.050)
-				if len(r) > 0:
-					# readable data
-					d = f.read(1)
-					f.flush()
-					#print d.encode("hex")
-				else:
+				if len(r) <= 0:
 					# no readable data
 					#print "No readable data"
 					break
 
+				# readable data
+				d = f.read(1)
+				f.flush()
 			while True:
-				for i in range(attempts):
+				for _ in range(attempts):
 					# send_key
 					out = '\x00\x00' + chr(KEYS[testkey]) + '\x00\x00\x00\x00\x00' + '\x00\x00\x00\x00\x00\x00\x00\x00'
 					f.write(out)
-					f.flush()					
+					f.flush()
 					# check LED
 					data = f.read(1)
 					self.statechange(ord(data))
@@ -273,31 +269,26 @@ if __name__ == "__main__":
 	# exiting with different error codes on success is part of the core mechanism
 	# of this script, so it can't be used on exit
 	# we return with error code 255 if something went wrong, this has to be handled by the caller
-		
+
 	argc = len(sys.argv[1:])
 	if argc < 1:
 		sys.exit(255)
 
 	method = sys.argv[1]
-	
 
-	
+
+
 	if method == "check":
 		# check if HID keyboard is working by triggering LED
 		if argc == 1:
 			# no trigger detail given, use default 
 			# NUMLOCK is pressed until 5 LED state changes have been seen
 			WatchHIDLed.check_HID_availability()
-		else:
-			pass
 	elif method == "trigger":
 		# block execution till trigger occurs (trigger key, count of keypresses, exitcode)
 		if argc == 1:
 			# no trigger detail given, use default (5 presses of NUMLOCK, CAPSLOCK or SCROLLLOCK)
 			# exitcode 1 = CAPSLOCK, 2 = NUMLOCK, 3 = SCROLLLOCK pressed 5 times
 			WatchHIDLed.createDefaultTrigger()
-		else:
-			# check of enough arguments for trigger definition
-			pass
 	else:
 		sys.exit(255)

